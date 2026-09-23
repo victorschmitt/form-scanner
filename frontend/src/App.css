@@ -2,16 +2,15 @@ main {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding: 24px 20px;
-  max-width: 420px;
+  padding: 24px;
+  max-width: 1280px;
   margin: 0 auto;
-  width: 100%;
   box-sizing: border-box;
-  text-align: left;
 }
 
 .hint {
   color: var(--text);
+  margin-top: 8px;
 }
 
 .banner {
@@ -22,11 +21,36 @@ main {
   font-size: 15px;
 }
 
-.capture {
+.modes {
+  display: flex;
+  gap: 8px;
+}
+
+.mode {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.mode.active {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--text-h);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.pick {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 48px;
+  min-height: 40px;
+  padding: 0 14px;
   border-radius: 8px;
   background: var(--accent-bg);
   color: var(--text-h);
@@ -35,18 +59,18 @@ main {
   font-weight: 500;
 }
 
-.capture input {
+.pick input {
   display: none;
 }
 
-.preview {
-  width: 100%;
-  border-radius: 8px;
-  border: 1px solid var(--border);
+.filename {
+  color: var(--text);
+  font-size: 15px;
 }
 
 button {
-  min-height: 48px;
+  min-height: 40px;
+  padding: 0 16px;
   border-radius: 8px;
   border: none;
   background: var(--accent);
@@ -61,10 +85,66 @@ button:disabled {
   cursor: not-allowed;
 }
 
-.ok {
+.error {
+  color: #c24141;
+}
+
+.result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 800px) {
+  .result {
+    grid-template-columns: 1fr;
+  }
+}
+
+.stage {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.stage img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.box {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid var(--accent);
+  background: var(--accent-bg);
+}
+
+aside p {
+  margin-bottom: 8px;
+}
+
+aside dl {
+  margin: 0;
+  font-size: 14px;
+  max-height: 70vh;
+  overflow: auto;
+}
+
+aside dl div {
+  margin-bottom: 12px;
+}
+
+aside dt {
+  font-weight: 600;
   color: var(--text-h);
 }
 
-.error {
-  color: #c24141;
+aside dd {
+  margin: 2px 0 0;
+  white-space: pre-line;
 }

@@ -3,6 +3,10 @@ import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  // Les événements inotify ne traversent pas les bind mounts de Docker sur macOS.
+  server: {
+    watch: { usePolling: true },
+  },
   plugins: [
     react(),
     VitePWA({

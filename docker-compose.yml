@@ -8,10 +8,13 @@ services:
       - "8080:8080"
     environment:
       PORT: "8080"
+      GOCACHE: /tmp/go-cache
       GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT:-}
       GOOGLE_CLOUD_QUOTA_PROJECT: ${GOOGLE_CLOUD_PROJECT:-}
     volumes:
+      - ./api:/src
       - ${HOME}/.config/gcloud:/root/.config/gcloud:ro
+    command: ["sh", "-c", "go build -o /tmp/form-scanner . && exec /tmp/form-scanner"]
 
   frontend:
     build:
@@ -20,5 +23,8 @@ services:
       - "5173:5173"
     environment:
       VITE_API_URL: http://localhost:8080/scan
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
     depends_on:
       - api

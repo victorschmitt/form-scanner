@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -22,15 +23,16 @@ type box struct {
 }
 
 type field struct {
-	Name        string `json:"name"`
-	MatchedText string `json:"matchedText"`
-	Box         box    `json:"box"`
+	Name  string `json:"name"`
+	Value string `json:"value"`
+	Boxes []box  `json:"boxes"`
 }
 
 type scanResponse struct {
 	Width    int     `json:"width"`
 	Height   int     `json:"height"`
 	Deskewed bool    `json:"deskewed"`
+	Image    string  `json:"image"`
 	Fields   []field `json:"fields"`
 }
 
@@ -71,10 +73,15 @@ func (s *server) scan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if words == nil {
+		words = []ocrWord{}
+	}
+
 	writeJSON(w, http.StatusOK, scanResponse{
 		Width:    width,
 		Height:   height,
 		Deskewed: deskewed,
+		Image:    base64.StdEncoding.EncodeToString(straight),
 		Fields:   matchFields(words),
 	})
 }

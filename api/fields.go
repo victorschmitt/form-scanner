@@ -8,32 +8,28 @@ import (
 )
 
 type labelPattern struct {
-	name     string
-	tokens   []string
-	tokenLen int
+	name       string
+	tokens     []string
+	extraLines int
 }
 
 var fieldPatterns = buildPatterns([]struct {
-	name    string
-	phrases []string
+	name       string
+	phrases    []string
+	extraLines int
 }{
-	{"nom", []string{"nom", "nom de famille"}},
-	{"prenom", []string{"prenom", "prenoms"}},
-	{"date_naissance", []string{"date de naissance", "ne le"}},
-	{"lieu_naissance", []string{"lieu de naissance", "ne a"}},
-	{"adresse", []string{"adresse", "domicile"}},
-	{"code_postal", []string{"code postal", "cp"}},
-	{"ville", []string{"ville", "commune"}},
-	{"telephone", []string{"telephone", "tel", "portable"}},
-	{"email", []string{"email", "e mail", "courriel", "mail"}},
-	{"nationalite", []string{"nationalite"}},
-	{"sexe", []string{"sexe", "genre"}},
-	{"signature", []string{"signature"}},
+	{"nom", []string{"nom", "nom de famille"}, 0},
+	{"prenom", []string{"prenom", "prenoms"}, 0},
+	{"date_naissance", []string{"date de naissance", "ne le"}, 0},
+	{"adresse", []string{"adresse postale", "adresse", "domicile"}, 1},
+	{"telephone", []string{"telephone", "tel", "portable"}, 0},
+	{"email", []string{"adresse email", "email", "e mail", "courriel", "mail"}, 0},
 })
 
 func buildPatterns(defs []struct {
-	name    string
-	phrases []string
+	name       string
+	phrases    []string
+	extraLines int
 }) []labelPattern {
 	var out []labelPattern
 	for _, d := range defs {
@@ -42,12 +38,12 @@ func buildPatterns(defs []struct {
 			if len(toks) == 0 {
 				continue
 			}
-			out = append(out, labelPattern{name: d.name, tokens: toks, tokenLen: len(toks)})
+			out = append(out, labelPattern{name: d.name, tokens: toks, extraLines: d.extraLines})
 		}
 	}
 	for i := 0; i < len(out); i++ {
 		for j := i + 1; j < len(out); j++ {
-			if out[j].tokenLen > out[i].tokenLen {
+			if len(out[j].tokens) > len(out[i].tokens) {
 				out[i], out[j] = out[j], out[i]
 			}
 		}
@@ -56,38 +52,103 @@ func buildPatterns(defs []struct {
 }
 
 func matchFields(words []ocrWord) []field {
-	norms := make([]string, len(words))
-	for i, w := range words {
-		norms[i] = normalize(w.Text)
+	lines := make([][]ocrWord, 0)
+	for _, word := range words {
+		for len(lines) <= word.Line {
+			lines = append(lines, nil)
+		}
+		lines[word.Line] = append(lines[word.Line], word)
 	}
-	used := make([]bool, len(words))
-	var fields []field
 
-	for _, p := range fieldPatterns {
-		for i := 0; i <= len(words)-p.tokenLen; i++ {
-			ok := true
-			for k, tok := range p.tokens {
-				if used[i+k] || norms[i+k] != tok {
-					ok = false
-					break
-				}
-			}
-			if !ok {
+	seen := make(map[string]bool)
+	var fields []field
+	for lineIndex, line := range lines {
+		pattern, valueStart, ok := matchLabel(line)
+		if !ok || seen[pattern.name] {
+			continue
+		}
+
+		valueWords := line[valueStart:]
+		boxes := []box{lineBox(line)}
+		for extra := 1; extra <= pattern.extraLines && lineIndex+extra < len(lines); extra++ {
+			next := lines[lineIndex+extra]
+			if len(next) == 0 {
 				continue
 			}
-			b := words[i].Box
-			raw := words[i].Text
-			used[i] = true
-			for k := 1; k < p.tokenLen; k++ {
-				b = unionBox(b, words[i+k].Box)
-				raw += " " + words[i+k].Text
-				used[i+k] = true
+			if _, _, isLabel := matchLabel(next); isLabel {
+				break
 			}
-			fields = append(fields, field{Name: p.name, MatchedText: raw, Box: b})
-			break
+			valueWords = append(valueWords, ocrWord{Text: "\n"})
+			valueWords = append(valueWords, next...)
+			boxes = append(boxes, lineBox(next))
 		}
+
+		value := joinValue(valueWords)
+		if value == "" {
+			continue
+		}
+		fields = append(fields, field{
+			Name:  pattern.name,
+			Value: value,
+			Boxes: boxes,
+		})
+		seen[pattern.name] = true
 	}
 	return fields
+}
+
+func matchLabel(line []ocrWord) (labelPattern, int, bool) {
+	for _, pattern := range fieldPatterns {
+		token := 0
+		for i, word := range line {
+			normalized := normalize(word.Text)
+			if normalized == "" {
+				continue
+			}
+			if token >= len(pattern.tokens) || normalized != pattern.tokens[token] {
+				break
+			}
+			token++
+			if token == len(pattern.tokens) {
+				return pattern, skipSeparators(line, i+1), true
+			}
+		}
+	}
+	return labelPattern{}, 0, false
+}
+
+func skipSeparators(line []ocrWord, start int) int {
+	for start < len(line) && normalize(line[start].Text) == "" {
+		start++
+	}
+	return start
+}
+
+func lineBox(line []ocrWord) box {
+	b := line[0].Box
+	for _, word := range line[1:] {
+		b = unionBox(b, word.Box)
+	}
+	return b
+}
+
+func joinValue(words []ocrWord) string {
+	var lines []string
+	var current []string
+	for _, word := range words {
+		if word.Text == "\n" {
+			if len(current) > 0 {
+				lines = append(lines, strings.Join(current, " "))
+				current = nil
+			}
+			continue
+		}
+		current = append(current, word.Text)
+	}
+	if len(current) > 0 {
+		lines = append(lines, strings.Join(current, " "))
+	}
+	return strings.Join(lines, "\n")
 }
 
 func normalize(s string) string {
